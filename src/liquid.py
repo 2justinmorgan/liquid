@@ -1,7 +1,6 @@
 from typing import (
 	cast as _cast,
 	Optional as _Optional,
-	List as _List,
 	Any as _Any,
 	Dict as _Dict,
 )
@@ -45,13 +44,13 @@ def _get_session_token() -> str:
 	return _cast(str, result.get(tkey))
 
 
-def get_instruments() -> _List[_Dict[str, _Any]]:
+def get_instruments() -> _Dict[str, _Any]:
 	result = _query(
 		_HTTPMethod.GET,
 		"dxsca-web/instruments/query",
 		None,
 		_get_session_token(),
 	)
-	if not isinstance(result, list):
+	if not isinstance(result, dict):
 		raise TypeError(f"instruments not received")
 	return result
