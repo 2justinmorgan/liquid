@@ -16,7 +16,7 @@ def _query(
 	session_token: _Optional[str] = None,
 ) -> _Any:
 	base_url = _get_env("LIQUID_API_BASE_URL")
-	url = f"{base_url}{'/' if api_url_path[0] != '/' else ''}{api_url_path}"
+	url = f"{base_url}/dxsca-web{'/' if api_url_path[0] != '/' else ''}{api_url_path}"
 	return _request(
         method=method,
 		headers={
@@ -32,7 +32,7 @@ def _get_session_token() -> str:
 	tkey = "sessionToken"
 	result = _query(
 		_HTTPMethod.POST,
-		"/dxsca-web/login",
+		"/login",
 		{
 			"username": _get_env("LIQUID_UN"),
 			"password": _get_env("LIQUID_PW"),
@@ -47,7 +47,7 @@ def _get_session_token() -> str:
 def get_instruments() -> _Dict[str, _Any]:
 	result = _query(
 		_HTTPMethod.GET,
-		"dxsca-web/instruments/query",
+		"instruments/query",
 		None,
 		_get_session_token(),
 	)
