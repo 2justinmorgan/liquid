@@ -159,6 +159,9 @@ class Cursor:
         self.is_in_position = False
         self.max = 0
         self.min = Cursor.DEFAULT_MIN
+        self.max_delta = 0
+        self.min_delta = 0
+        self.delta = 0
         self.curr = 0
         self.sma_5 = 0
         self.sma_15 = 0
@@ -166,10 +169,15 @@ class Cursor:
         self._count = 0
         self._queue = []
         self._queue_max = 60
+        self.sma_5_delta = 0
+        self.sma_15_delta = 0
+        self.sma_60_delta = 0
 
     def reset(self) -> None:
         self.max = 0
         self.min = Cursor.DEFAULT_MIN
+        self.min_delta = 0
+        self.max_delta = 0
         self.purchase_price = 0
         self.is_in_position = False
 
@@ -184,6 +192,7 @@ class Cursor:
         self.p_and_l += diff
         self.p_and_l_percentage += delta
         #print("sell\t", self.purchase_price, "at", self.curr, f"\t{diff}", "with p-and-l\t\t", self.p_and_l)
+        #print("\tp-and-l", self.p_and_l, self.p_and_l_percentage)
         self.reset()
         return diff
 
@@ -195,15 +204,21 @@ class Cursor:
         self.sma_5 = sum(self._queue[-5:]) / 5 if self._count >= 5 else 0
         self.sma_15 = sum(self._queue[-15:]) / 15 if self._count >= 15 else 0
         self.sma_60 = sum(self._queue[-60:]) / 60 if self._count >= 60 else 0
+        self.sma_5_delta = (curr - self.sma_5) / self.sma_5 if self.sma_5 else 0
+        self.sma_15_delta = (curr - self.sma_15) / self.sma_15 if self.sma_15 else 0
+        self.sma_60_delta = (curr - self.sma_60) / self.sma_60 if self.sma_60 else 0
 
     def _calc_min_max(self, curr: float) -> None:
         self.min = curr if curr < self.min else self.min
         self.max = curr if curr > self.max else self.max
+        self.min_delta = (curr - self.min) / self.min if self.min else 0
+        self.max_delta = (curr - self.max) / self.max if self.max else 0
 
     def move(self, curr: float) -> None:
         self.curr = curr
         self._calc_sma(curr)
         self._calc_min_max(curr)
+        self.delta = (self._queue[-2] - self._queue[-1]) / self._queue[-2] if self._count > 1 else 0
         if self._decide_to_sell(self):
             self.sell()
         if self._decide_to_buy(self):
@@ -256,49 +271,61 @@ def analyze_files() -> None:
     return Events(events)
 
 
-def iterate_cursor() -> None:
+def iterate_cursor(file_path_arg) -> None:
     dir_path = _Path("out/")
     files_list = [p for p in dir_path.iterdir() if p.is_file()]
     events = []
     from statistics import median, quantiles
 
     def decide_to_buy(cursor: Cursor) -> bool:
-        if cursor.sma_60 <= 0 or cursor.is_in_position:
+        if cursor.is_in_position:
             return False
-        return ((cursor.curr - cursor.sma_60) / cursor.sma_60) < -0.001
+        is_to_buy = cursor.sma_60_delta < -0.0001
+        return is_to_buy
     def decide_to_sell(cursor: Cursor) -> bool:
-        if cursor.sma_5 <= 0 or not cursor.is_in_position:
+        if not cursor.is_in_position:
             return False
-        return ((cursor.curr - cursor.sma_5) / cursor.sma_5) > 0.001
+        is_to_sell = cursor.delta > 0.00036 or cursor.sma_60_delta < -0.00012
+        return is_to_sell
 
     maxx = 0
     minn = 100
     c = 0
+    num_deads = 0
     tot_p_and_l_percentage = 0
     q = []
     for file_path in files_list:
-        file_name = str(file_path).split('\\')[1]
-        print(f"'out/{file_name}'")
+        if file_path_arg:
+            file_name = str(file_path_arg).split('/')[1]
+        else:
+            file_name = str(file_path).split('\\')[1]
+        #print(f"'out/{file_name}'")
         with open(f"out/{file_name}", 'r') as file_obj:
             events = [Event(e) for e in _load(file_obj)]
             cursor = Cursor(decide_to_buy, decide_to_sell)
             for event in events:
                 cursor.move(event.middle)
             #print(cursor.p_and_l_percentage, file_name)
-            if cursor.p_and_l_percentage <= 0:
+            if cursor.p_and_l_percentage == 0:
+                #print("0", file_name)
                 e = [event.middle for event in events]
                 #print(sum(e) // len(e))
                 #print(len(e))
                 #print(cursor.p_and_l, cursor.p_and_l_percentage)
+                num_deads += 1
                 continue
             maxx = cursor.p_and_l_percentage if cursor.p_and_l_percentage > maxx else maxx
             minn = cursor.p_and_l_percentage if cursor.p_and_l_percentage < minn else minn
             tot_p_and_l_percentage += cursor.p_and_l_percentage
             c += 1
             q.append(cursor.p_and_l_percentage)
+        if file_path_arg:
+            break
     q.sort()
     print()
     print((q[0], q[len(q) // 2], q[-1]) if q else None)
-    print("avg:", (tot_p_and_l_percentage / c) if c else tot_p_and_l_percentage)
+    avg = (tot_p_and_l_percentage / c) if c else tot_p_and_l_percentage
+    print(f"avg:{avg:.12f}", "\tnum-not-sold:", num_deads)
 
-iterate_cursor()
+from sys import argv
+iterate_cursor(argv[1] if len(argv) > 1 else None)
