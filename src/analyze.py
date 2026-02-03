@@ -6,6 +6,8 @@ from typing import (
     List as _List,
     Final as _Final,
     Union as _Union,
+    Literal as _Literal,
+    Callable as _Callable,
 )
 from pathlib import Path as _Path
 from datetime import (
@@ -141,6 +143,73 @@ class Events:
             self.symbols[symbol].output_details()
 
 
+class Cursor:
+    DEFAULT_MIN: _Final = 10**10
+
+    def __init__(
+        self,
+        decide_to_buy: _Callable[["Cursor"], bool],
+        decide_to_sell: _Callable[["Cursor"], bool],
+    ) -> None:
+        self._decide_to_buy = decide_to_buy
+        self._decide_to_sell = decide_to_sell
+        self.p_and_l = 0
+        self.p_and_l_percentage = 0
+        self.purchase_price = 0
+        self.is_in_position = False
+        self.max = 0
+        self.min = Cursor.DEFAULT_MIN
+        self.curr = 0
+        self.sma_5 = 0
+        self.sma_15 = 0
+        self.sma_60 = 0
+        self._count = 0
+        self._queue = []
+        self._queue_max = 60
+
+    def reset(self) -> None:
+        self.max = 0
+        self.min = Cursor.DEFAULT_MIN
+        self.purchase_price = 0
+        self.is_in_position = False
+
+    def buy(self) -> None:
+        #print("buy\t", curr)
+        self.purchase_price = self.curr
+        self.is_in_position = True
+
+    def sell(self) -> float:
+        diff = self.curr - self.purchase_price
+        delta = (self.curr - self.purchase_price) / self.purchase_price
+        self.p_and_l += diff
+        self.p_and_l_percentage += delta
+        #print("sell\t", self.purchase_price, "at", self.curr, f"\t{diff}", "with p-and-l\t\t", self.p_and_l)
+        self.reset()
+        return diff
+
+    def _calc_sma(self, curr: float) -> None:
+        self._count = self._count + 1 if self._count < self._queue_max else self._queue_max
+        if self._count > self._queue_max:
+            self._queue.pop(0)
+        self._queue.append(curr)
+        self.sma_5 = sum(self._queue[-5:]) / 5 if self._count >= 5 else 0
+        self.sma_15 = sum(self._queue[-15:]) / 15 if self._count >= 15 else 0
+        self.sma_60 = sum(self._queue[-60:]) / 60 if self._count >= 60 else 0
+
+    def _calc_min_max(self, curr: float) -> None:
+        self.min = curr if curr < self.min else self.min
+        self.max = curr if curr > self.max else self.max
+
+    def move(self, curr: float) -> None:
+        self.curr = curr
+        self._calc_sma(curr)
+        self._calc_min_max(curr)
+        if self._decide_to_sell(self):
+            self.sell()
+        if self._decide_to_buy(self):
+            self.buy()
+
+
 def filter_24_hour_instruments(instruments_all: _List[Instrument]) -> _List[Instrument]:
     instruments = []
     for instrument in instruments_all:
@@ -185,3 +254,51 @@ def analyze_files() -> None:
             for event in _load(file_obj):
                 events.append(event)
     return Events(events)
+
+
+def iterate_cursor() -> None:
+    dir_path = _Path("out/")
+    files_list = [p for p in dir_path.iterdir() if p.is_file()]
+    events = []
+    from statistics import median, quantiles
+
+    def decide_to_buy(cursor: Cursor) -> bool:
+        if cursor.sma_60 <= 0 or cursor.is_in_position:
+            return False
+        return ((cursor.curr - cursor.sma_60) / cursor.sma_60) < -0.001
+    def decide_to_sell(cursor: Cursor) -> bool:
+        if cursor.sma_5 <= 0 or not cursor.is_in_position:
+            return False
+        return ((cursor.curr - cursor.sma_5) / cursor.sma_5) > 0.001
+
+    maxx = 0
+    minn = 100
+    c = 0
+    tot_p_and_l_percentage = 0
+    q = []
+    for file_path in files_list:
+        file_name = str(file_path).split('\\')[1]
+        print(f"'out/{file_name}'")
+        with open(f"out/{file_name}", 'r') as file_obj:
+            events = [Event(e) for e in _load(file_obj)]
+            cursor = Cursor(decide_to_buy, decide_to_sell)
+            for event in events:
+                cursor.move(event.middle)
+            #print(cursor.p_and_l_percentage, file_name)
+            if cursor.p_and_l_percentage <= 0:
+                e = [event.middle for event in events]
+                #print(sum(e) // len(e))
+                #print(len(e))
+                #print(cursor.p_and_l, cursor.p_and_l_percentage)
+                continue
+            maxx = cursor.p_and_l_percentage if cursor.p_and_l_percentage > maxx else maxx
+            minn = cursor.p_and_l_percentage if cursor.p_and_l_percentage < minn else minn
+            tot_p_and_l_percentage += cursor.p_and_l_percentage
+            c += 1
+            q.append(cursor.p_and_l_percentage)
+    q.sort()
+    print()
+    print((q[0], q[len(q) // 2], q[-1]) if q else None)
+    print("avg:", (tot_p_and_l_percentage / c) if c else tot_p_and_l_percentage)
+
+iterate_cursor()
