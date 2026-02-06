@@ -1,3 +1,4 @@
 requests
 mypy
 types-requests
+pydantic

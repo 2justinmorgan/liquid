@@ -4,12 +4,17 @@ from typing import (
 	Any as _Any,
 	Dict as _Dict,
 	Final as _Final,
+	List as _List,
 )
 from requests import (
     request as _request,
 	Response as _Response,
 )
 from http import HTTPMethod as _HTTPMethod
+from src.defines.instrument import (
+	InstrumentsDtoCollection as _InstrumentsDtoCollection,
+	Instrument as _Instrument,
+)
 
 
 class Liquid:
@@ -26,7 +31,7 @@ class Liquid:
 		tkey = "sessionToken"
 		result = self._query(
 			_HTTPMethod.POST,
-			"/dxsca-web/login",
+			"/login",
 			{
 				"username": username,
 				"password": password,
@@ -44,7 +49,7 @@ class Liquid:
 		data: _Optional[_Dict[str, _Any]] = None,
 	) -> _Response:
 		base_url = self._api_base_url
-		url = f"{base_url}{'/' if api_url_path[0] != '/' else ''}{api_url_path}"
+		url = f"{base_url}/dxsca-web{'/' if api_url_path[0] != '/' else ''}{api_url_path}"
 		response = _request(
 	        method=method,
 			headers={
@@ -55,3 +60,13 @@ class Liquid:
 			url=url,
 		)
 		return response
+
+	def get_instruments(self) -> _List[_Instrument]:
+		result = self._query(
+			_HTTPMethod.GET,
+			"instruments/query",
+		).json()
+		if not isinstance(result, dict):
+			raise TypeError(f"instruments not received", result)
+		dtos = _InstrumentsDtoCollection(**result)
+		return [dto.to_bo() for dto in dtos.instruments]
