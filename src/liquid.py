@@ -11,6 +11,9 @@ from requests import (
 	Response as _Response,
 )
 from http import HTTPMethod as _HTTPMethod
+from src.common import (
+	to_dict as _to_dict,
+)
 from src.defines.instrument import (
 	InstrumentsDtoCollection as _InstrumentsDtoCollection,
 	Instrument as _Instrument,
@@ -47,7 +50,11 @@ class Liquid:
 		method: _HTTPMethod,
 		api_url_path: str,
 		data: _Optional[_Dict[str, _Any]] = None,
+		num_retries: _Optional[int] = None,
 	) -> _Response:
+		if (num_retries or 0) > 2:
+			raise Exception("too many retries")
+
 		base_url = self._api_base_url
 		url = f"{base_url}/dxsca-web{'/' if api_url_path[0] != '/' else ''}{api_url_path}"
 		response = _request(
@@ -59,6 +66,10 @@ class Liquid:
 	        json=data,
 			url=url,
 		)
+		if _to_dict(response.text).get("description") == "Authorization required":
+			self._session_token = \
+				self._get_session_token(self._username, self._password)
+			return self._query(method, api_url_path, data, (num_retries or 0) + 1)
 		return response
 
 	def get_instruments(self) -> _List[_Instrument]:
