@@ -77,7 +77,7 @@ class Liquid:
 			_HTTPMethod.GET,
 			"instruments/query",
 		).json()
-		if not isinstance(result, dict):
+		if not isinstance(result, dict) or "instruments" not in result:
 			raise TypeError(f"instruments not received", result)
 		dtos = _InstrumentsDtoCollection(**result)
 		return [dto.to_bo() for dto in dtos.instruments]
