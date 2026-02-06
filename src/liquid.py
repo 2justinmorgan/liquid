@@ -3,54 +3,55 @@ from typing import (
 	Optional as _Optional,
 	Any as _Any,
 	Dict as _Dict,
+	Final as _Final,
 )
-from requests import request as _request
+from requests import (
+    request as _request,
+	Response as _Response,
+)
 from http import HTTPMethod as _HTTPMethod
-from common import get_env as _get_env
 
 
-def _query(
-	method: _HTTPMethod,
-	api_url_path: str,
-	data: _Optional[_Dict[str, _Any]] = None,
-	session_token: _Optional[str] = None,
-) -> _Any:
-	base_url = _get_env("LIQUID_API_BASE_URL")
-	url = f"{base_url}{'/' if api_url_path[0] != '/' else ''}{api_url_path}"
-	return _request(
-        method=method,
-		headers={
-			"Content-Type": "application/json",
-			**({"Authorization": f"DXAPI {session_token}"} if session_token else {})
-		},
-        json=data,
-		url=url,
-	).json()
+class Liquid:
+	def __init__(self, username: str, password: str, api_base_url: str) -> None:
+		self._username: _Final[str] = username
+		self._password: _Final[str] = password
+		self._api_base_url: _Final[str] = api_base_url
+		self._session_token: str = self._get_session_token(
+			self._username,
+			self._password,
+		)
 
+	def _get_session_token(self, username: str, password: str) -> str:
+		tkey = "sessionToken"
+		result = self._query(
+			_HTTPMethod.POST,
+			"/dxsca-web/login",
+			{
+				"username": username,
+				"password": password,
+				"domain": "default",
+			},
+		).json()
+		if not isinstance(result, dict) or not isinstance(result.get(tkey), str):
+			raise TypeError(f"session token not received", result)
+		return _cast(str, result.get(tkey))
 
-def _get_session_token() -> str:
-	tkey = "sessionToken"
-	result = _query(
-		_HTTPMethod.POST,
-		"/dxsca-web/login",
-		{
-			"username": _get_env("LIQUID_UN"),
-			"password": _get_env("LIQUID_PW"),
-			"domain": "default",
-		},
-	)
-	if not isinstance(result, dict) or not isinstance(result.get(tkey), str):
-		raise TypeError(f"session token not received")
-	return _cast(str, result.get(tkey))
-
-
-def get_instruments() -> _Dict[str, _Any]:
-	result = _query(
-		_HTTPMethod.GET,
-		"dxsca-web/instruments/query",
-		None,
-		_get_session_token(),
-	)
-	if not isinstance(result, dict):
-		raise TypeError(f"instruments not received")
-	return result
+	def _query(
+		self,
+		method: _HTTPMethod,
+		api_url_path: str,
+		data: _Optional[_Dict[str, _Any]] = None,
+	) -> _Response:
+		base_url = self._api_base_url
+		url = f"{base_url}{'/' if api_url_path[0] != '/' else ''}{api_url_path}"
+		response = _request(
+	        method=method,
+			headers={
+				"Content-Type": "application/json",
+				**({"Authorization": f"DXAPI {self._session_token}"} if getattr(self, "_session_token", None) else {})
+			},
+	        json=data,
+			url=url,
+		)
+		return response
