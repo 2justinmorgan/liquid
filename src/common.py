@@ -2,6 +2,7 @@ from typing import (
     Union as _Union,
     Dict as _Dict,
     Any as _Any,
+    Final as _Final,
     cast as _cast,
 )
 from json import (
@@ -11,6 +12,8 @@ from os import (
     getenv as _getenv,
     environ as _environ,
 )
+
+ACCURACY_DECIMALS: _Final[int] = 8
 
 
 def get_env(var_name: str) -> _Union[str, None]:

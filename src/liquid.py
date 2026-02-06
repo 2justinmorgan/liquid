@@ -5,10 +5,15 @@ from typing import (
 	Dict as _Dict,
 	Final as _Final,
 	List as _List,
+	Literal as _Literal,
 )
 from requests import (
     request as _request,
 	Response as _Response,
+)
+from datetime import (
+	datetime as _datetime,
+	timedelta as _timedelta,
 )
 from http import HTTPMethod as _HTTPMethod
 from src.common import (
@@ -17,6 +22,12 @@ from src.common import (
 from src.defines.instrument import (
 	InstrumentsDtoCollection as _InstrumentsDtoCollection,
 	Instrument as _Instrument,
+	SymbolLiteral as _SymbolLiteral,
+)
+from src.defines.candle import (
+	Candle as _Candle,
+	CandleTypeLiteral as _CandleTypeLiteral,
+	EventsDto as _EventsDto,
 )
 
 
@@ -81,3 +92,32 @@ class Liquid:
 			raise TypeError(f"instruments not received", result)
 		dtos = _InstrumentsDtoCollection(**result)
 		return [dto.to_bo() for dto in dtos.instruments]
+
+	def get_market_data(
+		self,
+		symbol: _SymbolLiteral,
+		duration: _CandleTypeLiteral,
+		from_time: _datetime,
+		to_time: _datetime,
+	) -> _List[_Candle]:
+		if from_time >= to_time:
+			raise ValueError("'from_time' must be a date-time before 'to_time'")
+		response = self._query(
+			_HTTPMethod.POST,
+			"marketdata",
+			{
+				"symbols": [symbol],
+				"eventTypes": [
+					{
+						"type": "Candle",
+						"candleType": duration,
+						"fromTime": from_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-7] + 'z',
+						"toTime": to_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-7] + 'z',
+					},
+				],
+			},
+		).json()
+		if not isinstance(response, dict) or "events" not in response:
+			raise TypeError(f"market data not received", response)
+		dtos = _EventsDto(**response)
+		return [dto.to_bo() for dto in dtos.events]
