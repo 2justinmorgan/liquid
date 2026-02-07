@@ -7,6 +7,9 @@ from typing import (
 	List as _List,
 	Literal as _Literal,
 )
+from urllib.parse import (
+	quote as _quote,
+)
 from requests import (
     request as _request,
 	Response as _Response,
@@ -29,13 +32,24 @@ from src.defines.candle import (
 	CandleTypeLiteral as _CandleTypeLiteral,
 	EventsDto as _EventsDto,
 )
+from src.defines.position import (
+	Position as _Position,
+	PositionsDto as _PositionsDto,
+)
 
 
 class Liquid:
-	def __init__(self, username: str, password: str, api_base_url: str) -> None:
+	def __init__(
+		self,
+		username: str,
+		password: str,
+		api_base_url: str,
+		account_id: str,
+	) -> None:
 		self._username: _Final[str] = username
 		self._password: _Final[str] = password
 		self._api_base_url: _Final[str] = api_base_url
+		self._account_code: _Final[str] = _quote(f"default:{account_id}")
 		self._session_token: str = self._get_session_token(
 			self._username,
 			self._password,
@@ -121,3 +135,13 @@ class Liquid:
 			raise TypeError(f"market data not received", response)
 		dtos = _EventsDto(**response)
 		return [dto.to_bo() for dto in dtos.events]
+
+	def get_open_positions(self) -> _List[_Position]:
+		response = self._query(
+			_HTTPMethod.GET,
+			f"accounts/{self._account_code}/positions",
+		).json()
+		if not isinstance(response, dict) or "positions" not in response:
+			raise TypeError(f"positions not received", response)
+		dtos = _PositionsDto(**response).positions
+		return [dto.to_bo() for dto in dtos]
