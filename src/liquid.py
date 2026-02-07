@@ -7,6 +7,13 @@ from typing import (
 	List as _List,
 	Literal as _Literal,
 )
+from random import (
+	choices as _choices,
+)
+from string import (
+	digits as _digits,
+	ascii_letters as _ascii_letters,
+)
 from urllib.parse import (
 	quote as _quote,
 )
@@ -35,6 +42,7 @@ from src.defines.candle import (
 from src.defines.position import (
 	Position as _Position,
 	PositionsDto as _PositionsDto,
+	TradeSideLiteral as _TradeSideLiteral,
 )
 
 
@@ -145,3 +153,35 @@ class Liquid:
 			raise TypeError(f"positions not received", response)
 		dtos = _PositionsDto(**response).positions
 		return [dto.to_bo() for dto in dtos]
+
+	def place_order(
+		self,
+		symbol: _SymbolLiteral,
+		order_type: _Literal["MARKET", "LIMIT", "STOP"],
+		side: _TradeSideLiteral,
+		effect: _Literal["OPEN", "CLOSE"],
+		quantity: float,
+		position_code: _Optional[str] = None,
+		limit_price: _Optional[float] = None,
+		stop_price: _Optional[float] = None,
+	) -> str:
+		order_code = ''.join(_choices(_ascii_letters + _digits, k=7))
+		response = self._query(
+			_HTTPMethod.POST,
+			f"accounts/{self._account_code}/orders",
+			{
+				"orderCode": order_code,
+				"type": order_type,
+				"instrument": symbol,
+				"quantity": quantity,
+				"side": side,
+				"positionEffect": effect,
+				"tif": "GTC",
+				**({"positionCode": position_code} if position_code is not None else {}),
+				**({"limitPrice": limit_price} if limit_price is not None else {}),
+				**({"stopPrice": stop_price} if stop_price is not None else {}),
+			},
+		).json()
+		if not isinstance(response, dict) or not "orderId" in response:
+			raise TypeError("order not successful", response)
+		return _cast(str, response["orderId"])
