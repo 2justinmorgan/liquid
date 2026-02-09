@@ -6,6 +6,7 @@ from typing import (
 	Final as _Final,
 	List as _List,
 	Literal as _Literal,
+	Tuple as _Tuple,
 )
 from random import (
 	choices as _choices,
@@ -172,7 +173,7 @@ class Liquid:
 		position_code: _Optional[str] = None,
 		limit_price: _Optional[float] = None,
 		stop_price: _Optional[float] = None,
-	) -> str:
+	) -> _Tuple[str, str]:
 		order_code = ''.join(_choices(_ascii_letters + _digits, k=7))
 		response = self._query(
 			_HTTPMethod.POST,
@@ -192,7 +193,10 @@ class Liquid:
 		).json()
 		if not isinstance(response, dict) or not "orderId" in response:
 			raise TypeError("order not successful", response)
-		return _cast(str, response["orderId"])
+		return (
+			_cast(str, response["orderId"]),
+			_cast(str, response["updateOrderId"]),
+		)
 
 	def get_order_history(
 		self,
