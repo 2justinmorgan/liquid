@@ -44,6 +44,12 @@ from src.defines.position import (
 	PositionsDto as _PositionsDto,
 	TradeSideLiteral as _TradeSideLiteral,
 )
+from src.defines.history import (
+	PositionEffectLiteral as _PositionEffectLiteral,
+	OrderTypeLiteral as _OrderTypeLiteral,
+	TifLiteral as _TifLiteral,
+	HistoricalOrderDto as _HistoricalOrderDto,
+)
 
 
 class Liquid:
@@ -84,6 +90,7 @@ class Liquid:
 		api_url_path: str,
 		data: _Optional[_Dict[str, _Any]] = None,
 		num_retries: _Optional[int] = None,
+		params: _Optional[_Dict[str, _Any]] = None,
 	) -> _Response:
 		if (num_retries or 0) > 2:
 			raise Exception("too many retries")
@@ -98,6 +105,7 @@ class Liquid:
 			},
 	        json=data,
 			url=url,
+			params=params,
 		)
 		if _to_dict(response.text).get("description") == "Authorization required":
 			self._session_token = \
@@ -157,9 +165,9 @@ class Liquid:
 	def place_order(
 		self,
 		symbol: _SymbolLiteral,
-		order_type: _Literal["MARKET", "LIMIT", "STOP"],
+		order_type: _OrderTypeLiteral,
 		side: _TradeSideLiteral,
-		effect: _Literal["OPEN", "CLOSE"],
+		effect: _PositionEffectLiteral,
 		quantity: float,
 		position_code: _Optional[str] = None,
 		limit_price: _Optional[float] = None,
@@ -176,7 +184,7 @@ class Liquid:
 				"quantity": quantity,
 				"side": side,
 				"positionEffect": effect,
-				"tif": "GTC",
+				"tif": _TifLiteral,
 				**({"positionCode": position_code} if position_code is not None else {}),
 				**({"limitPrice": limit_price} if limit_price is not None else {}),
 				**({"stopPrice": stop_price} if stop_price is not None else {}),
@@ -185,3 +193,20 @@ class Liquid:
 		if not isinstance(response, dict) or not "orderId" in response:
 			raise TypeError("order not successful", response)
 		return _cast(str, response["orderId"])
+
+	def get_order_history(
+		self,
+		symbol: _Optional[_SymbolLiteral] = None,
+		order_id: _Optional[str] = None,
+	) -> _List[_HistoricalOrderDto]:
+		response = self._query(
+			_HTTPMethod.GET,
+			f"accounts/{self._account_code}/orders/history",
+			params={
+				**({"for-instrument": symbol} if symbol is not None else {}),
+				**({"with-order-id": order_id} if order_id is not None else {}),
+			},
+		).json()
+		if not isinstance(response, dict) or "orders" not in response:
+			raise TypeError("order history not received", response)
+		return [_HistoricalOrderDto(**order) for order in response["orders"]]
