@@ -186,7 +186,7 @@ class TestAnalyze(TestCase):
         actual: _Week = _Week.get_prev_week(now, trading_hours)
 
         self.assertEqual(actual.num_days, 5)
-        # Tuesday
+        # Wednesday, Jan 7th
         curr_day = actual.first_day
         self.assertEqual(curr_day.start_time.year, 2026)
         self.assertEqual(curr_day.start_time.month, 1)
@@ -201,7 +201,7 @@ class TestAnalyze(TestCase):
         self.assertEqual(curr_day.end_time.minute, 55)
         self.assertEqual(curr_day.end_time.second, 0)
 
-        # Monday
+        # Thursday, Jan 8th
         curr_day = actual.first_day.next_
         self.assertEqual(curr_day.start_time.year, 2026)
         self.assertEqual(curr_day.start_time.month, 1)
@@ -216,7 +216,7 @@ class TestAnalyze(TestCase):
         self.assertEqual(curr_day.end_time.minute, 55)
         self.assertEqual(curr_day.end_time.second, 0)
 
-        # Friday
+        # Friday, Jan 9th
         curr_day = actual.first_day.next_.next_
         self.assertEqual(curr_day.start_time.year, 2026)
         self.assertEqual(curr_day.start_time.month, 1)
@@ -231,7 +231,7 @@ class TestAnalyze(TestCase):
         self.assertEqual(curr_day.end_time.minute, 25)
         self.assertEqual(curr_day.end_time.second, 0)
 
-        # Thursday
+        # Monday, Jan 12th
         curr_day = actual.first_day.next_.next_.next_
         self.assertEqual(curr_day.start_time.year, 2026)
         self.assertEqual(curr_day.start_time.month, 1)
@@ -246,7 +246,7 @@ class TestAnalyze(TestCase):
         self.assertEqual(curr_day.end_time.minute, 55)
         self.assertEqual(curr_day.end_time.second, 0)
 
-        # Wednesday
+        # Tuesday, Jan 13th
         curr_day = actual.first_day.next_.next_.next_.next_
         self.assertEqual(curr_day.start_time.year, 2026)
         self.assertEqual(curr_day.start_time.month, 1)
