@@ -159,7 +159,7 @@ class Liquid:
 			},
 		).json()
 		if not isinstance(response, dict) or "events" not in response:
-			raise TypeError(f"market data not received", response)
+			raise TypeError(f"'{symbol}' at '{from_time}' market data not received", response)
 		dtos = _EventsDto(**response)
 		return [dto.to_bo() for dto in dtos.events]
 
@@ -202,7 +202,7 @@ class Liquid:
 			},
 		).json()
 		if not isinstance(response, dict) or not "orderId" in response:
-			raise TypeError("order not successful", response)
+			raise TypeError(f"'{symbol}' '{order_type}' '{side}' order to '{effect}' amount '{quantity}' not successful", response)
 		return (
 			_cast(str, response["orderId"]),
 			_cast(str, response["updateOrderId"]),
@@ -222,5 +222,5 @@ class Liquid:
 			},
 		).json()
 		if not isinstance(response, dict) or "orders" not in response:
-			raise TypeError("order history not received", response)
+			raise TypeError(f"'{symbol or order_id}' order history not received", response)
 		return [_HistoricalOrderDto(**order) for order in response["orders"]]
