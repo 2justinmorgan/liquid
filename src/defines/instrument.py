@@ -574,6 +574,7 @@ class Instrument:
         self.symbol: _Final[SymbolLiteral] = dto.symbol
         self.currency: _Final[_Optional[CurrencyLiteral]] = \
             dto.currency if isinstance(dto, (_ForexDto, _CfdDto)) else None
+        has_th = isinstance(dto, (_CfdDto, _CfdStockDto)) and isinstance(dto.tradingHours, list)
         self.trading_hours: _Final[_Optional[_List[TradingHour]]] = [
             TradingHour(th_dto) for th_dto in dto.tradingHours
-        ] if isinstance(dto, (_CfdDto, _CfdStockDto)) and isinstance(dto.tradingHours, list) else None
+        ] if hasattr(dto, "tradingHours") and has_th else None
