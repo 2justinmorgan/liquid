@@ -1,6 +1,5 @@
 from typing import (
     List as _List,
-    Dict as _Dict,
     Optional as _Optional,
     Literal as _Literal,
     Union as _Union,
@@ -543,18 +542,8 @@ class InstrumentsDtoCollection(_BaseModel):
 
 class TradingHour:
     def __init__(self, dto: _TradingHourDto) -> None:
-        week_day_lookup: _Dict[WeekdayLiteral, int] = {
-            "Monday": 0,
-            "Tuesday": 1,
-            "Wednesday": 2,
-            "Thursday": 3,
-            "Friday": 4,
-            "Saturday": 5,
-            "Sunday": 6,
-        }
         day_str, time_str = dto.weekDay.split(", ")
         self.week_day: _Final[WeekdayLiteral] = _cast(WeekdayLiteral, day_str)
-        self.week_day_int: _Final[int] = week_day_lookup[self.week_day]
         self.time: _Final[_time] = _time.fromisoformat(time_str.replace("Z", ""))
         self.event_type: _Final[EventTypeLiteral] = dto.eventType
 
