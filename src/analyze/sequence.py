@@ -6,6 +6,9 @@ from typing import (
     Literal as _Literal,
     cast as _cast,
 )
+from logging import (
+    getLogger as _getLogger,
+)
 from io import (
     StringIO as _StringIO,
 )
@@ -35,6 +38,8 @@ from src.defines.candle import (
     Candle as _Candle,
     CandleTypeLiteral as _CandleTypeLiteral,
 )
+
+_logger = _getLogger(__name__)
 
 
 class _Day:
@@ -217,13 +222,16 @@ class Sequence:
             "d": 1440,
             "w": 10080,
         }[candle_type]
-        is_sequential: _Callable[[_datetime, _datetime], bool] = \
+        is_sequential: bool = True
+        is_seq: _Callable[[_datetime, _datetime], bool] = \
             lambda dt1, dt2: dt1 == (dt2 - _timedelta(minutes=mins_diff))
         prev_: _Candle = candles[0]
         for candle in candles[1:]:
-            if not is_sequential(prev_.time, candle.time):
-                raise ValueError(f"candle-times '{prev_.time}' and '{candle.time}' are not sequential")
+            if not is_seq(prev_.time, candle.time):
+                is_sequential = False
+                _logger.info(f"candle-times '{prev_.time}' and '{candle.time}' are not sequential")
             prev_ = candle
+        self.is_sequential: _Final[bool] = is_sequential
 
     @staticmethod
     def _fetch_sequence(
