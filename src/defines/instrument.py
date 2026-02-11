@@ -522,14 +522,14 @@ class _CfdDto(_InstrumentDto):
     type: _Literal["CFD"]
     currency: CurrencyLiteral
     assetClass: str
-    tradingHours: _List[_TradingHourDto] = _Field(default_factory=list)
+    tradingHours: _Optional[_List[_TradingHourDto]] = _Field(default=None)
 
 
 class _CfdStockDto(_InstrumentDto):
     type: _Literal["CFD_STOCK"]
     currency: CurrencyLiteral
     assetClass: str
-    tradingHours: _List[_TradingHourDto] = _Field(default_factory=list)
+    tradingHours: _Optional[_List[_TradingHourDto]] = _Field(default=None)
 
 
 class InstrumentsDtoCollection(_BaseModel):
@@ -576,4 +576,4 @@ class Instrument:
             dto.currency if isinstance(dto, (_ForexDto, _CfdDto)) else None
         self.trading_hours: _Final[_Optional[_List[TradingHour]]] = [
             TradingHour(th_dto) for th_dto in dto.tradingHours
-        ] if isinstance(dto, (_CfdDto, _CfdStockDto)) else None
+        ] if isinstance(dto, (_CfdDto, _CfdStockDto)) and isinstance(dto.tradingHours, list) else None
