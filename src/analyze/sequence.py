@@ -6,8 +6,11 @@ from typing import (
     Literal as _Literal,
     cast as _cast,
 )
-from os import (
-    getenv as _getenv,
+from io import (
+    StringIO as _StringIO,
+)
+from csv import (
+    DictWriter as _DictWriter,
 )
 from sys import (
     stderr as _stderr,
@@ -285,3 +288,25 @@ class Sequence:
             week,
             liquid_client,
         )
+
+    def to_csv(self, is_with_header: bool = True) -> str:
+        output = _StringIO()
+        header = ["timestamp", "open", "high", "low", "close", "volume"]
+        writer = _DictWriter(
+            output,
+            fieldnames=header,
+        )
+
+        if is_with_header:
+            writer.writeheader()
+
+        for candle in self.candles:
+            writer.writerow({
+                header[0]: candle.time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                header[1]: candle.open,
+                header[2]: candle.high,
+                header[3]: candle.low,
+                header[4]: candle.close,
+                header[5]: candle.volume,
+            })
+        return output.getvalue()
