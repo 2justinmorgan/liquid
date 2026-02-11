@@ -497,6 +497,7 @@ class _InstrumentDto(_BaseModel):
     pipSize: float
     lotSize: float
     multiplier: float
+    tradingHours: _Optional[_List[_TradingHourDto]] = _Field(default=None)
 
     def to_bo(self) -> "Instrument":
         return Instrument(self)
@@ -522,14 +523,12 @@ class _CfdDto(_InstrumentDto):
     type: _Literal["CFD"]
     currency: CurrencyLiteral
     assetClass: str
-    tradingHours: _Optional[_List[_TradingHourDto]] = _Field(default=None)
 
 
 class _CfdStockDto(_InstrumentDto):
     type: _Literal["CFD_STOCK"]
     currency: CurrencyLiteral
     assetClass: str
-    tradingHours: _Optional[_List[_TradingHourDto]] = _Field(default=None)
 
 
 class InstrumentsDtoCollection(_BaseModel):
@@ -574,7 +573,7 @@ class Instrument:
         self.symbol: _Final[SymbolLiteral] = dto.symbol
         self.currency: _Final[_Optional[CurrencyLiteral]] = \
             dto.currency if isinstance(dto, (_ForexDto, _CfdDto)) else None
-        has_th = isinstance(dto, (_CfdDto, _CfdStockDto)) and isinstance(dto.tradingHours, list)
+        has_th = isinstance(dto.tradingHours, list) and len(dto.tradingHours) > 0
         self.trading_hours: _Final[_Optional[_List[TradingHour]]] = [
             TradingHour(th_dto) for th_dto in dto.tradingHours
-        ] if hasattr(dto, "tradingHours") and has_th else None
+        ] if dto.tradingHours and has_th else None
