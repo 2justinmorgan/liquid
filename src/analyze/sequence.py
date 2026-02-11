@@ -1,16 +1,36 @@
 from typing import (
     List as _List,
+    Final as _Final,
     Optional as _Optional,
+    Callable as _Callable,
+    Literal as _Literal,
     cast as _cast,
+)
+from os import (
+    getenv as _getenv,
+)
+from sys import (
+    stderr as _stderr,
 )
 from datetime import (
     datetime as _datetime,
     timedelta as _timedelta,
+    timezone as _timezone,
+    time as _time,
     date as _date,
+)
+from src.liquid import (
+    Liquid as _Liquid,
 )
 from src.defines.instrument import (
     TradingHour as _TradingHour,
     WeekdayLiteral as _WeekdayLiteral,
+    SymbolLiteral as _SymbolLiteral,
+    Instrument as _Instrument,
+)
+from src.defines.candle import (
+    Candle as _Candle,
+    CandleTypeLiteral as _CandleTypeLiteral,
 )
 
 
@@ -54,6 +74,16 @@ class _Day:
         return _Day(open_dt, close_dt)
 
 class _Week:
+    _WEEKDAYS: _Final = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ]
+
     def __init__(self, first_day: _Day) -> None:
         if first_day.prev_ is not None:
             raise ValueError("the head of the list 'days' must be the earliest day of the list")
@@ -107,18 +137,10 @@ class _Week:
             current_date -= _timedelta(days=1)
         return current_date
 
-    @staticmethod
-    def get_prev_week(now: _datetime, trading_hours: _List[_TradingHour]) -> "_Week":
+    @classmethod
+    def _get_prev_week_with_trading_hours(cls, now: _datetime, trading_hours: _List[_TradingHour]) -> "_Week":
         _Week._validate_hours(trading_hours)
-        curr_weekday: _WeekdayLiteral = _cast(_WeekdayLiteral, [
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-            "Sunday",
-        ][now.weekday()])
+        curr_weekday: _WeekdayLiteral = _cast(_WeekdayLiteral, cls._WEEKDAYS[now.weekday()])
         indices = _Week._get_prev_week_indices(curr_weekday, trading_hours)
 
         head = _Day(now, now)
@@ -136,3 +158,130 @@ class _Week:
         if head.prev_:
             head.prev_.next_ = None
         return _Week(curr)
+
+    @classmethod
+    def _build_default_trading_hours(cls) -> _List[_TradingHour]:
+        trading_hours = []
+        for week_day in _cast(_List[_WeekdayLiteral], cls._WEEKDAYS):
+            trading_hours.append(_TradingHour.const(week_day, _time(00, 00, 00), "SESSION_OPEN"))
+            trading_hours.append(_TradingHour.const(week_day, _time(23, 59, 00), "SESSION_CLOSE"))
+        return trading_hours
+
+    @classmethod
+    def get_prev_week(
+        cls,
+        now: _datetime,
+        trading_hours: _Optional[_List[_TradingHour]] = None,
+    ) -> "_Week":
+        hours = trading_hours if trading_hours is not None else \
+            cls._build_default_trading_hours()
+        _Week._validate_hours(hours)
+        curr_weekday: _WeekdayLiteral = _cast(_WeekdayLiteral, cls._WEEKDAYS[now.weekday()])
+        indices = _Week._get_prev_week_indices(curr_weekday, hours)
+
+        head = _Day(now, now)
+        curr = head
+
+        for index in indices:
+            open_th = hours[index]
+            close_th = hours[index + 1]
+            open_date = _Week._get_last_date(open_th.week_day_int, now.date())
+            prev_ = _Day.to_day(open_date, open_th, close_th)
+            prev_.next_ = curr
+            curr.prev_ = prev_
+            curr = prev_
+
+        if head.prev_:
+            head.prev_.next_ = None
+        return _Week(curr)
+
+
+class Sequence:
+    def __init__(self, candle_type: _CandleTypeLiteral, candles: _List[_Candle]) -> None:
+        self.num_candles: int = len(candles)
+        self.candles = candles
+        self.candle_type = candle_type
+        if len(candles) <= 0 or candle_type == "mo":
+            return
+        mins_diff: int = {
+            "m": 1,
+            "5m": 5,
+            "15m": 15,
+            "30m": 30,
+            "h": 60,
+            "2h": 120,
+            "4h": 240,
+            "d": 1440,
+            "w": 10080,
+        }[candle_type]
+        is_sequential: _Callable[[_datetime, _datetime], bool] = \
+            lambda dt1, dt2: dt1 == (dt2 - _timedelta(minutes=mins_diff))
+        prev_: _Candle = candles[0]
+        for candle in candles[1:]:
+            if not is_sequential(prev_.time, candle.time):
+                raise ValueError(f"candle-times '{prev_.time}' and '{candle.time}' are not sequential")
+            prev_ = candle
+
+    @staticmethod
+    def _fetch_sequence(
+        symbol: _SymbolLiteral,
+        candle_type: _CandleTypeLiteral,
+        day: _Day,
+        client: _Optional[_Liquid] = None,
+    ) -> "Sequence":
+        liquid_client = client if client else _Liquid.const_with_envvars()
+        market_data = liquid_client.get_market_data(
+            symbol,
+            candle_type,
+            day.start_time,
+            day.end_time,
+        )
+        return Sequence(candle_type, market_data)
+
+    @staticmethod
+    def _fetch_sequences(
+        symbol: _SymbolLiteral,
+        candle_type: _CandleTypeLiteral,
+        week: _Week,
+        client: _Optional[_Liquid] = None,
+    ) -> _List["Sequence"]:
+        sequences = []
+        curr: _Optional[_Day] = week.first_day
+        while curr:
+            try:
+                sequences.append(
+                    Sequence._fetch_sequence(
+                        symbol,
+                        candle_type,
+                        curr,
+                        client,
+                    )
+                )
+            except Exception as exception:
+                _stderr.write(str(exception) + '\n')
+            curr = curr.next_
+        return sequences
+
+    @staticmethod
+    def fetch_sequences(
+        symbol: _SymbolLiteral,
+        candle_type: _CandleTypeLiteral,
+        lookback_period: _Literal["1-week"],
+        instruments: _Optional[_List[_Instrument]] = None,
+        client: _Optional[_Liquid] = None,
+    ) -> _List["Sequence"]:
+        liquid_client = client if client else _Liquid.const_with_envvars()
+        liquid_instruments = instruments if instruments else \
+            liquid_client.get_instruments()
+        instrument: _Optional[_Instrument] = \
+            [i for i in liquid_instruments if i.symbol == symbol][0]
+        week = _Week.get_prev_week(
+            _datetime.now(_timezone.utc),
+            instrument.trading_hours if instrument else None,
+        )
+        return Sequence._fetch_sequences(
+            symbol,
+            candle_type,
+            week,
+            liquid_client,
+        )

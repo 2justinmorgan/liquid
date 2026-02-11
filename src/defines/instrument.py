@@ -558,6 +558,13 @@ class TradingHour:
         self.time: _Final[_time] = _time.fromisoformat(time_str.replace("Z", ""))
         self.event_type: _Final[EventTypeLiteral] = dto.eventType
 
+    @staticmethod
+    def const(week_day: WeekdayLiteral, time: _time, event_type: EventTypeLiteral) -> "TradingHour":
+        return TradingHour(_TradingHourDto(
+            weekDay=f"{week_day}, {time}Z",
+            eventType=event_type,
+        ))
+
 
 class Instrument:
     def __init__(

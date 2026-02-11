@@ -4,7 +4,8 @@ from parameterized import parameterized
 from typing import List, Callable
 from datetime import datetime, timezone, timedelta, date
 from src.defines.instrument import TradingHour, EventTypeLiteral, WeekdayLiteral
-from src.analyze.sequence import _Week, _Day
+from src.defines.candle import Candle
+from src.analyze.sequence import _Week, _Day, Sequence
 
 
 def append_target_module(var_name: str) -> str:
@@ -260,3 +261,31 @@ class TestAnalyze(TestCase):
         self.assertEqual(curr_day.end_time.hour, 20)
         self.assertEqual(curr_day.end_time.minute, 55)
         self.assertEqual(curr_day.end_time.second, 0)
+
+    def test_sequence_const(self) -> None:
+        now = datetime(2026, 2, 14, 13, 55, 13)
+        candles = [
+            Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now)),
+            Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now + timedelta(minutes=1))),
+            Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now + timedelta(minutes=2))),
+            Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now + timedelta(minutes=3))),
+            Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now + timedelta(minutes=4))),
+        ]
+        sequence = Sequence("m", candles)
+        self.assertEqual(sequence.num_candles, 5)
+        self.assertEqual(sequence.candle_type, "m")
+        self.assertEqual(sequence.candles, candles)
+
+    def test_sequence_const_missing_candles(self) -> None:
+        now = datetime(2026, 2, 14, 13, 55, 13)
+        candles = [
+            Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now)),
+            Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now + timedelta(minutes=1))),
+            Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now + timedelta(minutes=3))),
+            Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now + timedelta(minutes=4))),
+        ]
+
+        try:
+            Sequence("m", candles)
+        except Exception as e:
+            self.assertEqual(str(e), "candle-times '2026-02-14 13:56:13' and '2026-02-14 13:58:13' are not sequential")

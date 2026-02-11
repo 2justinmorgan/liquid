@@ -29,6 +29,7 @@ from datetime import (
 from http import HTTPMethod as _HTTPMethod
 from src.common import (
 	to_dict as _to_dict,
+	get_env as _get_env,
 )
 from src.defines.instrument import (
 	InstrumentsDtoCollection as _InstrumentsDtoCollection,
@@ -68,6 +69,15 @@ class Liquid:
 		self._session_token: str = self._get_session_token(
 			self._username,
 			self._password,
+		)
+
+	@staticmethod
+	def const_with_envvars() -> "Liquid":
+		return Liquid(
+			_get_env("LIQUID_UN"),
+			_get_env("LIQUID_PW"),
+			_get_env("LIQUID_API_BASE_URL"),
+			_get_env("LIQUID_ACCOUNT_ID"),
 		)
 
 	def _get_session_token(self, username: str, password: str) -> str:
