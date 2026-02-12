@@ -243,7 +243,7 @@ class Sequence:
                 gapd = gap.days
                 gaps = gap.seconds
                 total_gap_mins += float((gaps / 60) + 0 if gapd < 1 else (gapd * 1440))
-                _logger.warning(f"candle-times '{prev_.time}' and '{candle.time}' are not sequential")
+                _logger.warning(f"'{symbol}' candle-times '{prev_.time}' and '{candle.time}' are not sequential")
             prev_ = candle
         self.num_gaps: _Final[int] = num_gaps
         self.avg_gap_mins: _Final[float] = total_gap_mins / num_gaps if num_gaps > 0 else 0.0
