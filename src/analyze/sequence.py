@@ -214,7 +214,7 @@ class Sequence:
         self.candle_type = candle_type
         if len(candles) <= 0 or candle_type == "mo":
             return
-        mins_diff: int = {
+        mins: int = {
             "m": 1,
             "5m": 5,
             "15m": 15,
@@ -225,16 +225,22 @@ class Sequence:
             "d": 1440,
             "w": 10080,
         }[candle_type]
-        is_sequential: bool = True
+        num_gaps = 0
+        total_gap_mins = 0.0
         is_seq: _Callable[[_datetime, _datetime], bool] = \
-            lambda dt1, dt2: dt1 == (dt2 - _timedelta(minutes=mins_diff))
+            lambda dt1, dt2: dt1 == (dt2 - _timedelta(minutes=mins))
         prev_: _Candle = candles[0]
         for candle in candles[1:]:
             if not is_seq(prev_.time, candle.time):
-                is_sequential = False
+                num_gaps += 1
+                gap = candle.time - (prev_.time + _timedelta(minutes=mins))
+                gapd = gap.days
+                gaps = gap.seconds
+                total_gap_mins += float((gaps / 60) + 0 if gapd < 1 else (gapd * 1440))
                 _logger.warning(f"candle-times '{prev_.time}' and '{candle.time}' are not sequential")
             prev_ = candle
-        self.is_sequential: _Final[bool] = is_sequential
+        self.num_sequence_gaps: _Final[int] = num_gaps
+        self.avg_sequence_gap_mins: _Final[float] = total_gap_mins / num_gaps if num_gaps > 0 else 0.0
 
     @staticmethod
     def _fetch_sequence(
