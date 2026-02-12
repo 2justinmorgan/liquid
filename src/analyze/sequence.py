@@ -8,6 +8,8 @@ from typing import (
 )
 from logging import (
     getLogger as _getLogger,
+    basicConfig as _basicConfig,
+    WARNING as _WARNING_LOG_LEVEL,
 )
 from io import (
     StringIO as _StringIO,
@@ -39,6 +41,7 @@ from src.defines.candle import (
     CandleTypeLiteral as _CandleTypeLiteral,
 )
 
+_basicConfig(level=_WARNING_LOG_LEVEL)
 _logger = _getLogger(__name__)
 
 
@@ -229,7 +232,7 @@ class Sequence:
         for candle in candles[1:]:
             if not is_seq(prev_.time, candle.time):
                 is_sequential = False
-                _logger.info(f"candle-times '{prev_.time}' and '{candle.time}' are not sequential")
+                _logger.warning(f"candle-times '{prev_.time}' and '{candle.time}' are not sequential")
             prev_ = candle
         self.is_sequential: _Final[bool] = is_sequential
 
