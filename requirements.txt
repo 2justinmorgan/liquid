@@ -3,5 +3,3 @@ mypy
 types-requests
 pydantic
 parameterized
-boto3
-boto3[crt]
