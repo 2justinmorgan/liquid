@@ -276,16 +276,22 @@ class TestAnalyze(TestCase):
         self.assertEqual(sequence.candle_type, "m")
         self.assertEqual(sequence.candles, candles)
 
-    def test_sequence_const_missing_candles(self) -> None:
+    @patch(append_target_module("_logger"))
+    def test_sequence_const_missing_candles(self, _logger: MagicMock) -> None:
         now = datetime(2026, 2, 14, 13, 55, 13)
         candles = [
             Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now)),
             Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now + timedelta(minutes=1))),
-            Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now + timedelta(minutes=3))),
             Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now + timedelta(minutes=4))),
+            Candle(MagicMock(open=3, close=4, high=4.5, low=2.5, time=now + timedelta(minutes=5))),
         ]
 
-        try:
-            Sequence("m", candles)
-        except Exception as e:
-            self.assertEqual(str(e), "candle-times '2026-02-14 13:56:13' and '2026-02-14 13:58:13' are not sequential")
+        sequence = Sequence("m", candles)
+
+        self.assertEqual(sequence.num_candles, 4)
+        self.assertEqual(sequence.candle_type, "m")
+        self.assertEqual(sequence.num_sequence_gaps, 1)
+        self.assertEqual(sequence.avg_sequence_gap_mins, 2.0)
+        _logger.warning.assert_called_once_with(
+            "candle-times '2026-02-14 13:56:13' and '2026-02-14 13:59:13' are not sequential"
+        )
