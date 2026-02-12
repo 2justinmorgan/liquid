@@ -98,7 +98,7 @@ class S3Client:
         content = sequence.to_csv()
         tags = {
             "num_candles": f"{sequence.num_candles}",
-            "has_gaps": "true" if sequence.num_gaps > 0 else "false",
+            "num_gaps": f"{sequence.num_gaps}",
             "avg_gap_mins": f"{sequence.avg_gap_mins:.2f}",
         }
         tag_str = ""
