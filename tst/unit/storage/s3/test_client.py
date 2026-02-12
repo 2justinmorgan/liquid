@@ -96,7 +96,7 @@ class TestS3Client(TestCase):
         mock_sequence.num_gaps = 0
         mock_sequence.avg_gap_mins = 0.0
 
-        expected_key = "ETH/1m/2023-01-01T12:00:00Z-2023-01-01T12:00:00Z.csv"
+        expected_key = "ETH/1m/2023-01-01-2023-01-01.csv"
         
         returned_key = self.s3_client.upload_file(mock_sequence)
 
@@ -107,5 +107,5 @@ class TestS3Client(TestCase):
         self.assertIn("num_candles=2", kwargs["Tagging"])
         self.assertIn("has_gaps=false", kwargs["Tagging"])
         _logger.warning.assert_called_once_with(
-            "added file 'ETH/1m/2023-01-01T12:00:00Z-2023-01-01T12:00:00Z.csv' to bucket 'test-bucket'"
+            "added file 'ETH/1m/2023-01-01-2023-01-01.csv' to bucket 'test-bucket'"
         )

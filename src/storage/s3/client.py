@@ -91,7 +91,7 @@ class S3Client:
         )
 
     def upload_file(self, sequence: _Sequence) -> str:
-        dt_format = "%Y-%m-%dT%H:%M:%SZ"
+        dt_format = "%Y-%m-%d"
         start_ = sequence.candles[0].time.strftime(dt_format)
         end_ = sequence.candles[-1].time.strftime(dt_format)
         file_name = f"{sequence.symbol}/{sequence.candle_type}/{start_}-{end_}.csv"
