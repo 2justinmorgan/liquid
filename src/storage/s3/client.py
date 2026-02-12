@@ -14,6 +14,9 @@ from logging import (
     basicConfig as _basicConfig,
     WARNING as _WARNING_LOG_LEVEL,
 )
+from src.defines.candle import (
+    CandleTypeLiteral as _CandleTypeLiteral,
+)
 from src.defines.instrument import (
     SymbolLiteral as _SymbolLiteral,
 )
@@ -90,11 +93,25 @@ class S3Client:
             size_bytes=response["ContentLength"]
         )
 
-    def upload_file(self, sequence: _Sequence) -> str:
+    @staticmethod
+    def create_file_name(
+        symbol: _SymbolLiteral,
+        candle_type: _CandleTypeLiteral,
+        first_timestamp: _datetime,
+        last_timestamp: _datetime,
+    ) -> str:
         dt_format = "%Y-%m-%d"
-        start_ = sequence.candles[0].time.strftime(dt_format)
-        end_ = sequence.candles[-1].time.strftime(dt_format)
-        file_name = f"{sequence.symbol}/{sequence.candle_type}/{start_}-{end_}.csv"
+        start_ = first_timestamp.strftime(dt_format)
+        end_ = last_timestamp.strftime(dt_format)
+        return f"{symbol}/{candle_type}/{start_}-{end_}.csv"
+
+    def upload_file(self, sequence: _Sequence) -> str:
+        file_name = S3Client.create_file_name(
+            sequence.symbol,
+            sequence.candle_type,
+            sequence.candles[0].time,
+            sequence.candles[-1].time,
+        )
         content = sequence.to_csv()
         tags = {
             "num_candles": f"{sequence.num_candles}",

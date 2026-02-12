@@ -1,6 +1,9 @@
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 from datetime import datetime
+from src.storage.s3.client import S3Client
+from src.defines.candle import CandleTypeLiteral
+from src.defines.instrument import SymbolLiteral
 
 
 def append_target_module(var_name: str) -> str:
@@ -108,4 +111,15 @@ class TestS3Client(TestCase):
         self.assertIn("num_gaps=0", kwargs["Tagging"])
         _logger.warning.assert_called_once_with(
             "added file 'ETH/1m/2023-01-01-2023-01-01.csv' to bucket 'test-bucket'"
+        )
+
+    def test_create_file_name(self) -> None:
+        symbol: SymbolLiteral = "BAC"
+        candle_type: CandleTypeLiteral = "15m"
+        start_ = datetime(2026, 1, 17, 13, 55, 13)
+        end_ = datetime(2026, 1, 18, 17, 11, 45)
+
+        self.assertEqual(
+            S3Client.create_file_name(symbol, candle_type, start_, end_),
+            "BAC/15m/2026-01-17-2026-01-18.csv",
         )
