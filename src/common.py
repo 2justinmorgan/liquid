@@ -16,10 +16,10 @@ from os import (
 ACCURACY_DECIMALS: _Final[int] = 8
 
 
-def get_env(var_name: str) -> _Union[str, None]:
+def get_env(var_name: str) -> str:
     if var_name not in _environ:
         raise KeyError(f"env-var '{var_name}' not found")
-    return _getenv(var_name)
+    return _cast(str, _getenv(var_name))
 
 
 def to_dict(json_str: str) -> _Dict[str, _Any]:

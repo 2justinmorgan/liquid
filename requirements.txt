@@ -2,3 +2,4 @@ requests
 mypy
 types-requests
 pydantic
+parameterized

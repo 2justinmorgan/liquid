@@ -42,6 +42,7 @@ class Candle:
         self.close = dto.close
         self.high = dto.high
         self.low = dto.low
+        self.volume = dto.volume
         self.time = dto.time
 
         is_increasing = self.open < self.close

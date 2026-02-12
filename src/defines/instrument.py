@@ -1,5 +1,6 @@
 from typing import (
     List as _List,
+    Dict as _Dict,
     Optional as _Optional,
     Literal as _Literal,
     Union as _Union,
@@ -496,6 +497,7 @@ class _InstrumentDto(_BaseModel):
     pipSize: float
     lotSize: float
     multiplier: float
+    tradingHours: _Optional[_List[_TradingHourDto]] = _Field(default=None)
 
     def to_bo(self) -> "Instrument":
         return Instrument(self)
@@ -521,14 +523,12 @@ class _CfdDto(_InstrumentDto):
     type: _Literal["CFD"]
     currency: CurrencyLiteral
     assetClass: str
-    tradingHours: _List[_TradingHourDto] = _Field(default_factory=list)
 
 
 class _CfdStockDto(_InstrumentDto):
     type: _Literal["CFD_STOCK"]
     currency: CurrencyLiteral
     assetClass: str
-    tradingHours: _List[_TradingHourDto] = _Field(default_factory=list)
 
 
 class InstrumentsDtoCollection(_BaseModel):
@@ -542,10 +542,27 @@ class InstrumentsDtoCollection(_BaseModel):
 
 class TradingHour:
     def __init__(self, dto: _TradingHourDto) -> None:
+        week_day_lookup: _Dict[WeekdayLiteral, int] = {
+            "Monday": 0,
+            "Tuesday": 1,
+            "Wednesday": 2,
+            "Thursday": 3,
+            "Friday": 4,
+            "Saturday": 5,
+            "Sunday": 6,
+        }
         day_str, time_str = dto.weekDay.split(", ")
         self.week_day: _Final[WeekdayLiteral] = _cast(WeekdayLiteral, day_str)
+        self.week_day_int: _Final[int] = week_day_lookup[self.week_day]
         self.time: _Final[_time] = _time.fromisoformat(time_str.replace("Z", ""))
         self.event_type: _Final[EventTypeLiteral] = dto.eventType
+
+    @staticmethod
+    def const(week_day: WeekdayLiteral, time: _time, event_type: EventTypeLiteral) -> "TradingHour":
+        return TradingHour(_TradingHourDto(
+            weekDay=f"{week_day}, {time}Z",
+            eventType=event_type,
+        ))
 
 
 class Instrument:
@@ -556,6 +573,7 @@ class Instrument:
         self.symbol: _Final[SymbolLiteral] = dto.symbol
         self.currency: _Final[_Optional[CurrencyLiteral]] = \
             dto.currency if isinstance(dto, (_ForexDto, _CfdDto)) else None
+        has_th = isinstance(dto.tradingHours, list) and len(dto.tradingHours) > 0
         self.trading_hours: _Final[_Optional[_List[TradingHour]]] = [
             TradingHour(th_dto) for th_dto in dto.tradingHours
-        ] if isinstance(dto, (_CfdDto, _CfdStockDto)) else None
+        ] if dto.tradingHours and has_th else None
