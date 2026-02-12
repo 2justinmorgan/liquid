@@ -105,7 +105,7 @@ class TestS3Client(TestCase):
         
         args, kwargs = self.mock_client.put_object.call_args
         self.assertIn("num_candles=2", kwargs["Tagging"])
-        self.assertIn("has_gaps=false", kwargs["Tagging"])
+        self.assertIn("num_gaps=0", kwargs["Tagging"])
         _logger.warning.assert_called_once_with(
             "added file 'ETH/1m/2023-01-01-2023-01-01.csv' to bucket 'test-bucket'"
         )
