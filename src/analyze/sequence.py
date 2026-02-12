@@ -208,7 +208,13 @@ class _Week:
 
 
 class Sequence:
-    def __init__(self, candle_type: _CandleTypeLiteral, candles: _List[_Candle]) -> None:
+    def __init__(
+        self,
+        symbol: _SymbolLiteral,
+        candle_type: _CandleTypeLiteral,
+        candles: _List[_Candle],
+    ) -> None:
+        self.symbol: _SymbolLiteral = symbol
         self.num_candles: int = len(candles)
         self.candles = candles
         self.candle_type = candle_type
@@ -239,8 +245,8 @@ class Sequence:
                 total_gap_mins += float((gaps / 60) + 0 if gapd < 1 else (gapd * 1440))
                 _logger.warning(f"candle-times '{prev_.time}' and '{candle.time}' are not sequential")
             prev_ = candle
-        self.num_sequence_gaps: _Final[int] = num_gaps
-        self.avg_sequence_gap_mins: _Final[float] = total_gap_mins / num_gaps if num_gaps > 0 else 0.0
+        self.num_gaps: _Final[int] = num_gaps
+        self.avg_gap_mins: _Final[float] = total_gap_mins / num_gaps if num_gaps > 0 else 0.0
 
     @staticmethod
     def _fetch_sequence(
@@ -256,7 +262,7 @@ class Sequence:
             day.start_time,
             day.end_time,
         )
-        return Sequence(candle_type, market_data)
+        return Sequence(symbol, candle_type, market_data)
 
     @staticmethod
     def _fetch_sequences(

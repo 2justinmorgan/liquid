@@ -1,13 +1,45 @@
 from typing import (
     Optional as _Optional,
     Iterator as _Iterator,
+    Dict as _Dict,
+)
+from datetime import (
+    datetime as _datetime,
 )
 from boto3 import (
     Session as _Session,
 )
+from logging import (
+    getLogger as _getLogger,
+    basicConfig as _basicConfig,
+    WARNING as _WARNING_LOG_LEVEL,
+)
 from src.defines.instrument import (
     SymbolLiteral as _SymbolLiteral,
 )
+from src.analyze.sequence import (
+    Sequence as _Sequence,
+)
+
+
+_basicConfig(level=_WARNING_LOG_LEVEL)
+_logger = _getLogger(__name__)
+
+
+class _File:
+    def __init__(
+        self,
+        key: str,
+        content: str,
+        tags: _Dict[str, str],
+        last_modified: _datetime,
+        size_bytes: int,
+    ) -> None:
+        self.key = key
+        self.content = content
+        self.tags = tags
+        self.last_modified = last_modified
+        self.size_bytes = size_bytes
 
 
 class S3Client:
@@ -21,7 +53,9 @@ class S3Client:
         self._client = self._session.client('s3')
 
     def set_bucket(self, bucket_name: str) -> None:
+        old_name = self._bucket_name
         self._bucket_name = bucket_name
+        _logger.warning(f"changed bucket from '{old_name}' to '{self._bucket_name}'")
 
     def list_file_names(self, symbol: _Optional[_SymbolLiteral] = None) -> _Iterator[str]:
         paginator = self._client.get_paginator("list_objects_v2")
@@ -34,6 +68,48 @@ class S3Client:
             for obj in page.get("Contents", []):
                 yield obj["Key"]
 
-    def fetch_file_content(self, file_name: str) -> str:
+    def remove_file(self, file_name: str) -> None:
+        self._client.delete_object(
+            Bucket=self._bucket_name,
+            Key=file_name
+        )
+        _logger.warning(f"removed file '{file_name}' from bucket '{self._bucket_name}'")
+
+    def download_file(self, file_name: str) -> _File:
         response = self._client.get_object(Bucket=self._bucket_name, Key=file_name)
-        return response["Body"].read().decode("utf-8")
+        content = response["Body"].read().decode("utf-8")
+
+        tag_response = self._client.get_object_tagging(Bucket=self._bucket_name, Key=file_name)
+        tags = {t["Key"]: t["Value"] for t in tag_response.get("TagSet", [])}
+
+        return _File(
+            key=file_name,
+            content=content,
+            tags=tags,
+            last_modified=response["LastModified"],
+            size_bytes=response["ContentLength"]
+        )
+
+    def upload_file(self, sequence: _Sequence) -> str:
+        dt_format = "%Y-%m-%dT%H:%M:%SZ"
+        start_ = sequence.candles[0].time.strftime(dt_format)
+        end_ = sequence.candles[-1].time.strftime(dt_format)
+        file_name = f"{sequence.symbol}/{sequence.candle_type}/{start_}-{end_}.csv"
+        content = sequence.to_csv()
+        tags = {
+            "num_candles": f"{sequence.num_candles}",
+            "has_gaps": "true" if sequence.num_gaps > 0 else "false",
+            "avg_gap_mins": f"{sequence.avg_gap_mins:.2f}",
+        }
+        tag_str = ""
+        if tags:
+            tag_str = "&".join([f"{k}={v}" for k, v in tags.items()])
+        self._client.put_object(
+            Bucket=self._bucket_name,
+            Key=file_name,
+            Body=content.encode("utf-8"),
+            ContentType="text/csv",
+            Tagging=tag_str
+        )
+        _logger.warning(f"added file '{file_name}' to bucket '{self._bucket_name}'")
+        return file_name
