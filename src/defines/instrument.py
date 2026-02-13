@@ -582,13 +582,17 @@ class TradingHour:
 
 
 class Session:
-    def __init__(self, session_open: TradingHour, session_close: TradingHour) -> None:
+    def __init__(
+        self,
+        session_open: TradingHour,
+        session_close: TradingHour,
+        focal_time: _datetime,
+    ) -> None:
         if session_open.event_type != "SESSION_OPEN" or session_close.event_type != "SESSION_CLOSE":
             raise ValueError(
                 f"sessions need to begin and end (open:{session_open.event_type}) (close:{session_close.event_type})"
             )
-        now = _datetime.now(tz=_timezone.utc)
-        close_dt = session_close.to_dt(now)
+        close_dt = session_close.to_dt(focal_time)
         open_dt = session_open.to_dt(close_dt)
 
         if (close_dt - open_dt) > _timedelta(days=1):
@@ -601,13 +605,17 @@ class Session:
         self.th_close: _Final = session_close
 
     @staticmethod
-    def create_sessions(trading_hours: _List[TradingHour]) -> _List["Session"]:
+    def create_sessions(
+        trading_hours: _List[TradingHour],
+        focal_time: _datetime,
+    ) -> _List["Session"]:
         sessions: _List[Session] = []
         for i in range(0, len(trading_hours), 2):
             sessions.append(
                 Session(
                     trading_hours[i],
                     trading_hours[i + 1],
+                    focal_time,
                 )
             )
         return sessions

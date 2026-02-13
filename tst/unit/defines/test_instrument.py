@@ -92,17 +92,14 @@ class TestSession(TestCase):
     def create_th(self, day: WeekdayLiteral, time_str: str, event: EventTypeLiteral) -> TradingHour:
         return TradingHour.const(day, time.fromisoformat(time_str), event)
 
-    @patch(append_target_module("_datetime"))
-    def test_session_init_success(self, mock_datetime: MagicMock) -> None:
+    def test_session_init_success(self) -> None:
         # Thursday, Feb 12
-        mock_now = datetime(2026, 2, 12, 12, 0, 0, tzinfo=timezone.utc)
-        mock_datetime.now.return_value = mock_now
-        mock_datetime.combine = datetime.combine
+        focal_time = datetime(2026, 2, 12, 12, 0, 0, tzinfo=timezone.utc)
 
         th_open = self.create_th("Friday", "17:00:00", "SESSION_OPEN")
         th_close = self.create_th("Saturday", "10:00:00", "SESSION_CLOSE")
 
-        session = Session(th_open, th_close)
+        session = Session(th_open, th_close, focal_time)
 
         # Friday, Feb 6th
         self.assertEqual(session.start_day, "Friday")
@@ -116,29 +113,28 @@ class TestSession(TestCase):
         )
 
     def test_session_init_invalid_types(self) -> None:
+        focal_time = datetime(2026, 1, 15, 12, 35, 44)
         th_open = self.create_th("Monday", "08:00:00", "SESSION_CLOSE")
         th_close = self.create_th("Monday", "17:00:00", "SESSION_CLOSE")
 
         with self.assertRaises(ValueError) as cm:
-            Session(th_open, th_close)
+            Session(th_open, th_close, focal_time)
 
         self.assertIn("sessions need to begin and end", str(cm.exception))
 
     def test_session_init_too_long_times(self) -> None:
+        focal_time = datetime(2026, 1, 15, 12, 35, 44)
         th_open = self.create_th("Monday", "08:00:00", "SESSION_OPEN")
         th_close = self.create_th("Tuesday", "17:00:00", "SESSION_CLOSE")
 
         with self.assertRaises(ValueError) as cm:
-            Session(th_open, th_close)
+            Session(th_open, th_close, focal_time)
 
         self.assertIn("sessions can not be longer than 24 hours", str(cm.exception))
 
-    @patch(append_target_module("_datetime"))
-    def test_create_sessions_with_specific_focal(self, mock_datetime: MagicMock) -> None:
+    def test_create_sessions_with_specific_focal(self) -> None:
         # Wednesday, Feb 11th
-        focal = datetime(2026, 2, 11, 13, 35, 15, tzinfo=timezone.utc)
-        mock_datetime.now.return_value = focal
-        mock_datetime.combine = datetime.combine
+        focal_time = datetime(2026, 2, 11, 13, 35, 15, tzinfo=timezone.utc)
 
         trading_hours = [
             self.create_th("Sunday", "08:00:00", "SESSION_OPEN"),
@@ -157,7 +153,7 @@ class TestSession(TestCase):
             self.create_th("Thursday", "17:00:00", "SESSION_CLOSE"),
         ]
 
-        sessions = Session.create_sessions(trading_hours)
+        sessions = Session.create_sessions(trading_hours, focal_time)
 
         # Monday, Feb 9th
         self.assertEqual(sessions[3].start_day, "Monday")
