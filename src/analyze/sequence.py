@@ -77,7 +77,7 @@ class Sequence:
         self.avg_gap_mins: _Final[float] = total_gap_mins / num_gaps if num_gaps > 0 else 0.0
 
     @staticmethod
-    def _fetch_sequence(
+    def fetch_sequence(
         symbol: _SymbolLiteral,
         candle_type: _CandleTypeLiteral,
         session: _Session,
@@ -103,7 +103,7 @@ class Sequence:
         sequences: _List[Sequence] = []
         for session in sessions:
             sequences.append(
-                Sequence._fetch_sequence(
+                Sequence.fetch_sequence(
                     symbol,
                     candle_type,
                     session,
