@@ -14,6 +14,9 @@ from re import (
 )
 from datetime import (
     time as _time,
+    datetime as _datetime,
+    timezone as _timezone,
+    timedelta as _timedelta,
 )
 from pydantic import (
     BaseModel as _BaseModel,
@@ -557,12 +560,57 @@ class TradingHour:
         self.time: _Final[_time] = _time.fromisoformat(time_str.replace("Z", ""))
         self.event_type: _Final[EventTypeLiteral] = dto.eventType
 
+    def to_dt(self, focal_time: _datetime) -> _datetime:
+        focal_date = focal_time.date()
+
+        days_diff = focal_date.weekday() - self.week_day_int
+        target_datetime_today = _datetime.combine(focal_date, self.time, tzinfo=_timezone.utc)
+
+        if days_diff < 0 or (days_diff == 0 and focal_time < target_datetime_today):
+            days_diff += 7
+
+        most_recent_date = focal_date - _timedelta(days=days_diff)
+
+        return _datetime.combine(most_recent_date, self.time, tzinfo=_timezone.utc)
+
     @staticmethod
     def const(week_day: WeekdayLiteral, time: _time, event_type: EventTypeLiteral) -> "TradingHour":
         return TradingHour(_TradingHourDto(
             weekDay=f"{week_day}, {time}Z",
             eventType=event_type,
         ))
+
+
+class Session:
+    def __init__(self, session_open: TradingHour, session_close: TradingHour) -> None:
+        if session_open.event_type != "SESSION_OPEN" or session_close.event_type != "SESSION_CLOSE":
+            raise ValueError(
+                f"sessions need to begin and end (open:{session_open.event_type}) (close:{session_close.event_type})"
+            )
+        now = _datetime.now(tz=_timezone.utc)
+        close_dt = session_close.to_dt(now)
+        open_dt = session_open.to_dt(close_dt)
+
+        if (close_dt - open_dt) > _timedelta(days=1):
+            raise ValueError(f"sessions can not be longer than 24 hours (open:{open_dt}) (close:{close_dt})")
+
+        self.start_day: _Final[WeekdayLiteral] = session_open.week_day
+        self.open_time: _Final = open_dt
+        self.close_time: _Final = close_dt
+        self.th_open: _Final = session_open
+        self.th_close: _Final = session_close
+
+    @staticmethod
+    def create_sessions(trading_hours: _List[TradingHour]) -> _List["Session"]:
+        sessions: _List[Session] = []
+        for i in range(0, len(trading_hours), 2):
+            sessions.append(
+                Session(
+                    trading_hours[i],
+                    trading_hours[i + 1],
+                )
+            )
+        return sessions
 
 
 class Instrument:
