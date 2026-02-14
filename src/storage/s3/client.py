@@ -1,6 +1,7 @@
 from typing import (
     Optional as _Optional,
     Iterator as _Iterator,
+    List as _List,
     Dict as _Dict,
 )
 from datetime import (
@@ -35,13 +36,13 @@ class _File:
         key: str,
         content: str,
         tags: _Dict[str, str],
-        last_modified: _datetime,
+        modified_history: _List[_datetime],
         size_bytes: int,
     ) -> None:
         self.key = key
         self.content = content
         self.tags = tags
-        self.last_modified = last_modified
+        self.modified_history = modified_history
         self.size_bytes = size_bytes
 
 
@@ -80,6 +81,12 @@ class S3Client:
 
     def download_file(self, file_name: str) -> _File:
         response = self._client.get_object(Bucket=self._bucket_name, Key=file_name)
+        modified_history: _List[_datetime] = [
+            v["LastModified"] for v in self._client.list_object_versions(
+                Bucket=self._bucket_name,
+                Prefix=file_name,
+            )["Versions"]
+        ]
         content = response["Body"].read().decode("utf-8")
 
         tag_response = self._client.get_object_tagging(Bucket=self._bucket_name, Key=file_name)
@@ -89,7 +96,7 @@ class S3Client:
             key=file_name,
             content=content,
             tags=tags,
-            last_modified=response["LastModified"],
+            modified_history=modified_history,
             size_bytes=response["ContentLength"]
         )
 
